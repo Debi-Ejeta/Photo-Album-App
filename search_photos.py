@@ -4,7 +4,7 @@ from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 import base64
 
-key = "Vehicle"
+key = "road"
 
 client = boto3.client(
     "lex-runtime",
