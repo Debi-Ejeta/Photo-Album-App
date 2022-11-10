@@ -48,7 +48,7 @@ def lambda_handler(event, context):
     
 
     try:
-        lex_message = lex_response["slots"]["keywords"]
+        lex_message = lex_response["slots"]["kws"]
 
     except KeyError:
         lex_message = ""  # lex could not disambiguate the query
