@@ -45,6 +45,7 @@ def clean_dict(dict_obj):
 def lambda_handler(event, context):
     # return json.dumps(event['queryStringParameters'])
     return {
+        'isBase64Encoded': 'false',
         'statusCode': 200,
         'headers': {},
         'body': {
