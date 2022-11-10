@@ -22,8 +22,9 @@ def lambda_handler(event, context):
         
     s3client = boto3.client('s3')
     s3client_resp = s3client.head_object(Bucket=bucket_name, Key=photo_name)
-    metadata = s3client_resp['Metadata']
+    # metadata = s3client_resp['Metadata']
     # Need to figure out why metadata is empty and how to add it
+    print(event)
     
     image_timestamp = s3client_resp['LastModified']
     document = {
