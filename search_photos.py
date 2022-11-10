@@ -42,7 +42,17 @@ def clean_dict(dict_obj):
         
 
 def lambda_handler(event, context):
-    return json.dumps(event['queryStringParameters'])
+    # return json.dumps(event['queryStringParameters'])
+    return {
+            "results": [
+                {
+                    "url": json.dumps(event['queryStringParameters']),
+                    "labels": [
+                        "tbd"
+                    ]
+                }
+            ]
+            }
     count = 0
     images_obj = {} # empty object that will store images
     ambiguous_kw = get_key()
