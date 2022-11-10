@@ -27,7 +27,6 @@ opensearch_client = OpenSearch(
     connection_class=RequestsHttpConnection
 )
 
-
 def clean_dict(dict_obj):
     """
     This function removes duplicated values from the dictionary
@@ -35,10 +34,10 @@ def clean_dict(dict_obj):
     temp = {val: key for key, val in dict_obj.items()}
     return {val: key for key, val in temp.items()}
 
-
 def lambda_handler(event, context):
     count = 0
     images_obj = {}  # empty object that will store images
+    photo_label = []
     ambiguous_kw = event['queryStringParameters']['q']
     lex_response = client.post_text(
         botName="photobot",
@@ -46,6 +45,7 @@ def lambda_handler(event, context):
         userId="378707398066",
         inputText=ambiguous_kw,
     )
+    
 
     try:
         lex_message = lex_response["slots"]["keywords"]
@@ -77,7 +77,10 @@ def lambda_handler(event, context):
 
     return {
         'statusCode': 200,
-        'headers': {},
+        'headers': {
+            "Content-Type":"application/json",
+            "Access-Control-Allow-Origin":"*"
+        },
         'body': json.dumps({
             "results": [
                 {
