@@ -12,7 +12,8 @@ awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, servi
 def lambda_handler(event, context):
     bucket_name = event['Records'][0]['s3']['bucket']['name']
     photo_name = event['Records'][0]['s3']['object']['key']
-    
+    print(bucket_name)
+    print(photo_name)
     client=boto3.client('rekognition', 'us-east-1')
     rekogniton_resp = client.detect_labels(Image={'S3Object':{'Bucket':bucket_name,'Name':photo_name}},
         MaxLabels=10)
