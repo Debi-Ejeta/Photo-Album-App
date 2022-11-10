@@ -25,7 +25,10 @@ def lambda_handler(event, context):
     s3client_resp = s3client.head_object(Bucket=bucket_name, Key=photo_name)
     # metadata = s3client_resp['Metadata']
     # Need to figure out why metadata is empty and how to add it
-    print(s3client_resp)
+    # print(s3client_resp)
+
+    custom_labels = s3client_resp['Metadata']['customlabels'].split(",")
+    labels = labels + custom_labels
     
     image_timestamp = s3client_resp['LastModified']
     document = {
