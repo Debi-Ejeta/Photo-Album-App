@@ -42,7 +42,7 @@ def clean_dict(dict_obj):
         
 
 def lambda_handler(event, context):
-    return event
+    return event.items()
     count = 0
     images_obj = {} # empty object that will store images
     ambiguous_kw = get_key()
