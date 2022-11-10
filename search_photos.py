@@ -5,8 +5,6 @@ from requests_aws4auth import AWS4Auth
 import base64
 import os
 
-key = "vehicle"
-
 client = boto3.client(
     "lex-runtime",
     aws_access_key_id="AKIAVQLFYJWZOLGIJEHR",
@@ -30,10 +28,6 @@ opensearch_client = OpenSearch(
 )
 
 
-def get_key():
-    return key
-
-
 def clean_dict(dict_obj):
     """
     This function removes duplicated values from the dictionary
@@ -43,27 +37,9 @@ def clean_dict(dict_obj):
 
 
 def lambda_handler(event, context):
-    # return json.dumps(event['queryStringParameters'])
-    return {
-        'statusCode': 200,
-        'headers': {},
-        'body': json.dumps({
-            "results": [
-                {
-                    "url": json.dumps(event['queryStringParameters']),
-                    "labels": [
-                        "tbd"
-                    ]
-                }
-            ]
-        })
-        'isBase64Encoded': 'false'
-
-    }
-    
     count = 0
     images_obj = {}  # empty object that will store images
-    ambiguous_kw = get_key()
+    ambiguous_kw = event['queryStringParameters']['q']
     lex_response = client.post_text(
         botName="photobot",
         botAlias="beta",
@@ -72,10 +48,7 @@ def lambda_handler(event, context):
     )
 
     try:
-        kw = lex_response["slots"]["keywords"]
-        kw_li = kw.split(" ")
-        # lex_message = " and ".join(kw_li)
-        lex_message = kw
+        lex_message = lex_response["slots"]["keywords"]
 
     except KeyError:
         lex_message = ""  # lex could not disambiguate the query
@@ -98,23 +71,20 @@ def lambda_handler(event, context):
     for hit in openSearch_response['hits']['hits']:
         bucket_name = hit['_source']['bucket']
         photo_name = hit['_source']['objectKey']
-        s3client_response = s3client.get_object(Bucket=bucket_name, Key=photo_name)
+        photo_label = hit['_source']['labels']
         images_obj[count] = os.path.join("https://", bucket_name + ".s3.amazonaws.com", photo_name)
         count += 1
 
     return {
         'statusCode': 200,
         'headers': {},
-        'body': {
+        'body': json.dumps({
             "results": [
                 {
-                    "url": json.dumps(event['queryStringParameters']),
-                    "labels": [
-                        "tbd"
-                    ]
+                    "url": clean_dict(images_obj),
+                    "labels": photo_label
                 }
             ]
-        }
-
+        })
     }
 
