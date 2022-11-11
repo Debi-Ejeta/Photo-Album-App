@@ -63,12 +63,24 @@ def lambda_handler(event, context):
     query = {
         "size": 3000,
         "query": {
+            "match": {
+                "labels": lex_message
+            }
+        }
+    }
+
+
+    """
+    query = {
+        "size": 3000,
+        "query": {
             "multi_match": {
                 "query": lex_message,
                 'fields': ['labels']
             }
         }
     }
+    """
 
     openSearch_response = opensearch_client.search(
         body=query,
