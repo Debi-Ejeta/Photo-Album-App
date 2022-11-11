@@ -27,8 +27,6 @@ opensearch_client = OpenSearch(
     connection_class=RequestsHttpConnection
 )
 
-photo_label = []
-
 
 def clean_dict(dict_obj):
     """
@@ -38,7 +36,7 @@ def clean_dict(dict_obj):
     return {val: key for key, val in temp.items()}
 
 
-def query_kw(kw):
+def query_kw(kw, photos):
     images_set = set()
     query = {
         "size": 3000,
@@ -55,7 +53,7 @@ def query_kw(kw):
     for hit in open_search_response['hits']['hits']:
         bucket_name = hit['_source']['bucket']
         photo_name = hit['_source']['objectKey']
-        photo_label = photo_label + hit['_source']['labels']
+        photos = photos + hit['_source']['labels']
         images_set.add(os.path.join("https://", bucket_name + ".s3.amazonaws.com", photo_name))
     return images_set
 
@@ -65,6 +63,7 @@ def lambda_handler(event, context):
     lex_message = ""
     count = 0
     images_obj = {}  # empty object that will store images
+    photo_label = []
     ambiguous_kw = event['queryStringParameters']['q']
     lex_response = client.post_text(
         botName="photobot",
@@ -78,11 +77,11 @@ def lambda_handler(event, context):
         kw2 = lex_response["slots"]["keytwo"]
 
         if kw2 is None:
-            kw1_result = query_kw(kw1)
+            kw1_result = query_kw(kw1, photo_label)
             # lex_message = kw1
         else:
-            kw1_result = query_kw(kw1)
-            kw2_result = query_kw(kw2)
+            kw1_result = query_kw(kw1, photo_label)
+            kw2_result = query_kw(kw2, photo_label)
 
             # lex_message = kw1 + " " + kw2
         kw = kw1_result.intersection(kw2_result)
@@ -93,37 +92,6 @@ def lambda_handler(event, context):
     except KeyError:
         images_obj = {}
         # lex_message = ""  # lex could not disambiguate the query
-
-    """
-        query = {
-        "size": 3000,
-        "query": {
-            "match": {
-                "labels": lex_message
-            }
-        }
-    }
-    query = {
-        "size": 3000,
-        "query": {
-            "multi_match": {
-                "query": lex_message,
-                'fields': ['labels']
-            }
-        }
-    }
-        openSearch_response = opensearch_client.search(
-        body=query,
-        index='photos'
-    )
-
-    for hit in openSearch_response['hits']['hits']:
-        bucket_name = hit['_source']['bucket']
-        photo_name = hit['_source']['objectKey']
-        photo_label = hit['_source']['labels']
-        images_obj[count] = os.path.join("https://", bucket_name + ".s3.amazonaws.com", photo_name)
-        count += 1
-    """
 
     return {
         'statusCode': 200,
