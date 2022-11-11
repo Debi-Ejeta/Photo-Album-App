@@ -84,7 +84,11 @@ def lambda_handler(event, context):
             kw2_result = query_kw(kw2, photo_label)
 
             # lex_message = kw1 + " " + kw2
-        kw = kw1_result.intersection(kw2_result)
+        kw = set()
+        if len(kw2_result) > 0:
+            kw = kw1_result.intersection(kw2_result)
+        else:
+            kw = kw1_result
         for k in kw:
             images_obj[count] = k
             count += 1
