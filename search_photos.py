@@ -27,6 +27,9 @@ opensearch_client = OpenSearch(
     connection_class=RequestsHttpConnection
 )
 
+photo_label = []
+
+
 def clean_dict(dict_obj):
     """
     This function removes duplicated values from the dictionary
@@ -34,11 +37,34 @@ def clean_dict(dict_obj):
     temp = {val: key for key, val in dict_obj.items()}
     return {val: key for key, val in temp.items()}
 
+
+def query_kw(kw):
+    images_set = set()
+    query = {
+        "size": 3000,
+        "query": {
+            "match": {
+                "labels": kw
+            }
+        }
+    }
+    open_search_response = opensearch_client.search(
+        body=query,
+        index='photos'
+    )
+    for hit in open_search_response['hits']['hits']:
+        bucket_name = hit['_source']['bucket']
+        photo_name = hit['_source']['objectKey']
+        photo_label = photo_label + hit['_source']['labels']
+        images_set.add(os.path.join("https://", bucket_name + ".s3.amazonaws.com", photo_name))
+    return images_set
+
+
 def lambda_handler(event, context):
+    kw1_result, kw2_result = set(), set()
     lex_message = ""
     count = 0
     images_obj = {}  # empty object that will store images
-    photo_label = []
     ambiguous_kw = event['queryStringParameters']['q']
     lex_response = client.post_text(
         botName="photobot",
@@ -46,21 +72,30 @@ def lambda_handler(event, context):
         userId="378707398066",
         inputText=ambiguous_kw,
     )
-    
 
     try:
         kw1 = lex_response["slots"]["keyone"]
         kw2 = lex_response["slots"]["keytwo"]
 
-        if not kw2:
-            lex_message = kw1
+        if kw2 is None:
+            kw1_result = query_kw(kw1)
+            # lex_message = kw1
         else:
-            lex_message = kw1 + " " + kw2
+            kw1_result = query_kw(kw1)
+            kw2_result = query_kw(kw2)
+
+            # lex_message = kw1 + " " + kw2
+        kw = kw1_result.intersection(kw2_result)
+        for k in kw:
+            images_obj[count] = k
+            count += 1
 
     except KeyError:
-        lex_message = ""  # lex could not disambiguate the query
+        images_obj = {}
+        # lex_message = ""  # lex could not disambiguate the query
 
-    query = {
+    """
+        query = {
         "size": 3000,
         "query": {
             "match": {
@@ -68,9 +103,6 @@ def lambda_handler(event, context):
             }
         }
     }
-
-
-    """
     query = {
         "size": 3000,
         "query": {
@@ -80,9 +112,7 @@ def lambda_handler(event, context):
             }
         }
     }
-    """
-
-    openSearch_response = opensearch_client.search(
+        openSearch_response = opensearch_client.search(
         body=query,
         index='photos'
     )
@@ -93,12 +123,13 @@ def lambda_handler(event, context):
         photo_label = hit['_source']['labels']
         images_obj[count] = os.path.join("https://", bucket_name + ".s3.amazonaws.com", photo_name)
         count += 1
+    """
 
     return {
         'statusCode': 200,
         'headers': {
-            "Content-Type":"application/json",
-            "Access-Control-Allow-Origin":"*"
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
         },
         'body': json.dumps({
             "results": [
