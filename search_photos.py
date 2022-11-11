@@ -52,7 +52,7 @@ def lambda_handler(event, context):
         kw1 = lex_response["slots"]["keyone"]
         kw2 = lex_response["slots"]["keytwo"]
 
-        if kw2 == "null":
+        if not kw2:
             lex_message = kw1
         else:
             lex_message = kw1 + " " + kw2
