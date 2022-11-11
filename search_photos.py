@@ -72,12 +72,39 @@ def lambda_handler(event, context):
         inputText=ambiguous_kw,
     )
 
+    kw1 = lex_response["slots"]["keyone"]
+    kw2 = lex_response["slots"]["keytwo"]
+
+    if kw2 is None:
+        kw1_result = query_kw(kw1, photo_label)
+        # lex_message = kw1
+    else:
+        kw1_result = query_kw(kw1, photo_label)
+        kw2_result = query_kw(kw2, photo_label)
+
+        # lex_message = kw1 + " " + kw2
+    kw = set()
+    if len(kw2_result) > 0:
+        kw = kw1_result.intersection(kw2_result)
+    else:
+        kw = kw1_result
+    for k in kw:
+        images_obj[count] = k
+        count += 1
+
+    print("the set 1 is ", kw1_result)
+    print("the set 2 is ", kw2_result)
+    print("photo labels is ", photo_label)
+    print("the set is ", kw)
+
+    """
     try:
         kw1 = lex_response["slots"]["keyone"]
         kw2 = lex_response["slots"]["keytwo"]
 
         if kw2 is None:
             kw1_result = query_kw(kw1, photo_label)
+
             # lex_message = kw1
         else:
             kw1_result = query_kw(kw1, photo_label)
@@ -101,6 +128,7 @@ def lambda_handler(event, context):
     except KeyError:
         images_obj = {}
         # lex_message = ""  # lex could not disambiguate the query
+    """
 
     print("dictionary is ", images_obj)
     return {
