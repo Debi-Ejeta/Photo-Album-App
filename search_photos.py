@@ -89,10 +89,16 @@ def lambda_handler(event, context):
             images_obj[count] = k
             count += 1
 
+        print("the set 1 is ", kw1_result)
+        print("the set 2 is ", kw2_result)
+        print("photo labels is ", photo_label)
+        print("the set is ", kw)
+
     except KeyError:
         images_obj = {}
         # lex_message = ""  # lex could not disambiguate the query
 
+    print("dictionary is ", images_obj)
     return {
         'statusCode': 200,
         'headers': {
