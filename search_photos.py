@@ -35,6 +35,7 @@ def clean_dict(dict_obj):
     return {val: key for key, val in temp.items()}
 
 def lambda_handler(event, context):
+    lex_message = ""
     count = 0
     images_obj = {}  # empty object that will store images
     photo_label = []
@@ -48,7 +49,13 @@ def lambda_handler(event, context):
     
 
     try:
-        lex_message = lex_response["slots"]["kws"]
+        kw1 = lex_response["slots"]["keyone"]
+        kw2 = lex_response["slots"]["keytwo"]
+
+        if kw2 == "null":
+            lex_message = kw1
+        else:
+            lex_message = kw1 + " " + kw2
 
     except KeyError:
         lex_message = ""  # lex could not disambiguate the query
