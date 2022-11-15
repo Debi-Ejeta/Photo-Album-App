@@ -20,7 +20,8 @@ def lambda_handler(event, context):
     labels = []
     for label in rekogniton_resp['Labels']:
         labels.append(label['Name'])
-        
+    
+    print(labels)
     s3client = boto3.client('s3')
     s3client_resp = s3client.head_object(Bucket=bucket_name, Key=photo_name)
     # metadata = s3client_resp['Metadata']
