@@ -5,12 +5,6 @@ from requests_aws4auth import AWS4Auth
 import base64
 import os
 
-client = boto3.client(
-    "lex-runtime",
-    aws_access_key_id="AKIAVQLFYJWZOLGIJEHR",
-    aws_secret_access_key="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",
-)
-
 s3client = boto3.client('s3')
 
 host = 'search-photos-kglyeztx7h7vslcgxqektg5xoa.us-east-1.es.amazonaws.com'
