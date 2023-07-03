@@ -1,0 +1,371 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  S3BucketName:
+    Type: String
+  DomainName:
+    Type: String
+Resources:
+  OpenSearchDomain:
+    Type: AWS::OpenSearchService::Domain
+    Properties:
+      EngineVersion: OpenSearch_1.0
+      ClusterConfig:
+        DedicatedMasterEnabled: false
+        InstanceCount: 1
+        InstanceType: t3.small.search
+        WarmEnabled: false
+        ZoneAwarenessEnabled: false
+      CognitoOptions:
+        Enabled: false
+      DomainName: !Ref DomainName
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: 10
+        VolumeType: gp2    
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties: 
+      Name: RestAPI
+      Description: A test Api
+      BodyS3Location: 
+        Bucket: 'lambdabuckets73'
+        Key: 'swagger.yaml'
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestAPI
+      Description: My deployment
+      StageName: dev1
+  APIPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: searchPhotos
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref searchPhotos
+      Principal: apigateway.amazonaws.com
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Join [
+        "", [
+          "arn:aws:execute-api:", 
+          {"Ref": "AWS::Region"}, ":", 
+          {"Ref": "AWS::AccountId"}, ":", 
+          !Ref RestAPI, "/*/*/*"
+          ]
+        ] 
+  Bucket:
+    Type: AWS::S3::Bucket
+    DependsOn: BucketPermission
+    Properties:
+      BucketName: !Ref S3BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+        - Event: 's3:ObjectCreated:*'
+          Function: !GetAtt indexPhotos.Arn
+  BucketPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: indexPhotos
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref indexPhotos
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: 
+        Fn::Sub: arn:aws:s3:::${S3BucketName}
+  indexPhotos:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment: 
+        Variables:
+          ENDPOINT1: !GetAtt OpenSearchDomain.DomainEndpoint
+      FunctionName: indexPhotos
+      Handler: index_photos.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - IndexPhotosLambdaRole
+        - Arn
+      Code:
+        S3Bucket: lambdabuckets73
+        S3Key: index_lambda.zip
+      Runtime: python3.9
+  IndexPhotosLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: IndexPhotosLambdaRole
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: AWSLambdaBasicExecutionRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - s3:PutObject
+            - s3:DeleteObject
+            - es:*
+            - lex:*
+            - rekognition:*
+            - s3:*
+            - s3-object-lambda:*
+            Resource: "*"
+  searchPhotos:
+    Type: AWS::Lambda::Function
+    Properties:
+      Environment: 
+        Variables:
+          ENDPOINT: !GetAtt OpenSearchDomain.DomainEndpoint
+      FunctionName: searchPhotos
+      Handler: search_photos.lambda_handler
+      Role:
+        Fn::GetAtt:
+        - SearchPhotosLambdaRole
+        - Arn
+      Code:
+        S3Bucket: lambdabuckets73
+        S3Key: search_lambda.zip
+      Runtime: python3.9
+  SearchPhotosLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: SearchPhotosLambdaRole
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: AWSLambdaBasicExecutionRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            - es:*
+            - lex:*
+            - rekognition:*
+            - s3:*
+            - s3-object-lambda:*
+            Resource: "*"
+  AssetsBucket:
+    Type: AWS::S3::Bucket
+  ClientBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: fileupload.html
+        ErrorDocument: fileupload.html
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: PublicWebsitePolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref ClientBucket
+                - /*
+      Bucket: !Ref ClientBucket
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": [ "codebuild.amazonaws.com" ]},
+                "Action": [ "sts:AssumeRole" ]
+            }]
+        }
+      Policies:
+        - PolicyName: client-code-build-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Resource:
+                  - !Sub arn:aws:s3:::${AssetsBucket}/*
+                  - !Sub arn:aws:s3:::${ClientBucket}/*
+                  - !Sub arn:aws:s3:::${ClientBucket}
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:ListObjects
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument: |
+        {
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": { "Service": [ "codepipeline.amazonaws.com" ]},
+                "Action": [ "sts:AssumeRole" ]
+            }]
+        }
+      Policies:
+        - PolicyName: code-pipeline-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${AssetsBucket}/*
+                  - !Sub arn:aws:s3:::${ClientBucket}/*
+                  - !Sub arn:aws:s3:::${ClientBucket}
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:ListObjects
+              - Resource:
+                  - arn:aws:s3:::*
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - lambda:*
+  ClientBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: "CODEPIPELINE"
+      Source:
+        Type: "CODEPIPELINE"
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                  nodejs: 12.x
+            pre_build:
+              commands:
+                  - npm install
+            build:
+              commands:
+                  - echo "Creating frontend code zip"
+          artifacts:
+            files:
+              - '**/*'
+      Environment:
+        ComputeType: "BUILD_GENERAL1_SMALL"
+        Image: "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
+        Type: "LINUX_CONTAINER"
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: PUBLIC_URL
+            Value: '/'
+      Name: !Sub ${AWS::StackName}-build-client
+      ServiceRole: !Ref CodeBuildServiceRole
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref AssetsBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              Configuration:
+                Owner: FMugisho
+                Repo: e6998
+                Branch: main
+                OAuthToken: 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
+              OutputArtifacts:
+                - Name: App
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: ClientBuildStep
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref ClientBuildProject
+              InputArtifacts:
+                - Name: App
+              OutputArtifacts:
+                - Name: ClientBuild
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: ClientDeployStep
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: S3
+              Configuration:
+                BucketName: !Ref ClientBucket
+                Extract: 'true'
+              InputArtifacts:
+                - Name: ClientBuild
+              RunOrder: 1
+Outputs:
+  WebsiteURL:
+    Value: !GetAtt
+      - ClientBucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !GetAtt
+          - ClientBucket
+          - DomainName
+    Description: Name of S3 bucket to hold website content

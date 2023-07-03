@@ -6,7 +6,7 @@ from requests_aws4auth import AWS4Auth
 host = 'search-photos-kglyeztx7h7vslcgxqektg5xoa.us-east-1.es.amazonaws.com'
 region = 'us-east-1'
 service = 'es'
-credentials = boto3.Session().get_credentials()
+credentials = boto3.Session().get_credentials() 
 awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, service, session_token=credentials.token)
 
 def lambda_handler(event, context):
@@ -20,13 +20,9 @@ def lambda_handler(event, context):
     labels = []
     for label in rekogniton_resp['Labels']:
         labels.append(label['Name'])
-    
-    print(labels)
+        
     s3client = boto3.client('s3')
     s3client_resp = s3client.head_object(Bucket=bucket_name, Key=photo_name)
-    # metadata = s3client_resp['Metadata']
-    # Need to figure out why metadata is empty and how to add it
-    # print(s3client_resp)
 
     custom_labels = s3client_resp['Metadata']['customlabels'].split(",")
     labels = labels + custom_labels
@@ -46,12 +42,5 @@ def lambda_handler(event, context):
         verify_certs = True,
         connection_class = RequestsHttpConnection
     )
-    #opensearch_client.indices.create("photos")
+    
     res = opensearch_client.index(index="photos", body=document)
-    
-    print(res)
-    
-    
-    
-    
-    
