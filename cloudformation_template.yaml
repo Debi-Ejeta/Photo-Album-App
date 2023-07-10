@@ -322,7 +322,7 @@ Resources:
                 Owner: FMugisho
                 Repo: e6998
                 Branch: main
-                OAuthToken: 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
+                OAuthToken: #Auth#Token
               OutputArtifacts:
                 - Name: App
               RunOrder: 1
